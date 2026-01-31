@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Life in Weeks | The Ultimate Death Clock</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #09090b;
+            --text-color: #e4e4e7;
+            --accent-color: #ef4444;
+            --grid-lived: #ef4444;
+            --grid-future: #27272a;
+            --grid-current: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.5s, color 0.5s;
+        }
+        
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+        canvas {
+            image-rendering: pixelated;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            cursor: crosshair;
+            transition: transform 0.1s ease-out;
+            transform-origin: top center;
+        }
+
+        input, select, textarea {
+            background-color: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.1);
+            color: inherit;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            ring: 2px solid var(--accent-color);
+        }
+        
+        /* Theme Classes */
+        .theme-memento { --bg-color: #09090b; --text-color: #e4e4e7; --accent-color: #ef4444; --grid-lived: #ef4444; --grid-future: #27272a; }
+        .theme-matrix { --bg-color: #000000; --text-color: #00ff00; --accent-color: #00ff00; --grid-lived: #008f11; --grid-future: #002200; }
+        .theme-pastel { --bg-color: #fdf2f8; --text-color: #4b5563; --accent-color: #f472b6; --grid-lived: #f472b6; --grid-future: #e5e7eb; }
+
+        /* Zen Mode */
+        body.zen-mode > *:not(.zen-container) {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1s;
+        }
+        body.zen-mode .zen-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+        .zen-exit {
+            display: none;
+        }
+        body.zen-mode .zen-exit {
+            display: block;
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            opacity: 0.3;
+            transition: opacity 0.3s;
+            cursor: pointer;
+        }
+        body.zen-mode .zen-exit:hover { opacity: 1; }
+
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+    </style>
+</head>
+<body class="theme-memento min-h-screen flex flex-col items-center py-10 px-4">
+
+    <!-- Header -->
+    <header class="text-center mb-8 max-w-2xl w-full">
+        <h1 class="text-4xl md:text-6xl font-black tracking-tighter mb-2 uppercase transition-colors duration-300" style="color: var(--text-color)">Life In Weeks</h1>
+        <p class="text-opacity-60 text-sm md:text-base mono uppercase tracking-widest" style="color: var(--text-color)">Memento Mori</p>
+    </header>
+
+    <!-- Main Input -->
+    <div class="w-full max-w-md bg-white/5 border border-white/10 p-6 rounded-2xl mb-6 backdrop-blur-sm shadow-xl z-10">
+        <label class="block text-xs font-bold opacity-60 uppercase tracking-widest mb-2">Enter Your Birthday</label>
+        <div class="flex gap-4">
+            <input type="date" id="birthDate" class="w-full px-4 py-3 rounded-xl transition-all font-mono">
+            <button onclick="updateApp()" class="bg-white/10 hover:bg-white/20 text-current font-bold px-6 py-3 rounded-xl transition-colors uppercase tracking-wide border border-white/10">
+                View
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div class="w-full max-w-2xl mb-8 z-10">
+        <details class="group bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-md transition-all duration-300 open:pb-4">
+            <summary class="flex justify-between items-center p-4 cursor-pointer hover:bg-white/5 font-bold uppercase tracking-wide text-sm select-none">
+                <span><i class="fa-solid fa-sliders mr-2"></i> View your life better</span>
+                <span class="transform group-open:rotate-180 transition-transform"><i class="fa-solid fa-chevron-down"></i></span>
+            </summary>
+            
+            <div class="px-6 pt-4 grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
+                
+                <!-- Column 1: Config -->
+                <div class="space-y-6">
+                    <!-- Theme -->
+                    <div>
+                        <label class="block text-xs font-bold opacity-50 uppercase mb-2">Theme</label>
+                        <div class="flex gap-2">
+                            <button onclick="setTheme('memento')" class="flex-1 py-2 rounded bg-zinc-800 text-white border border-zinc-700 hover:border-red-500 text-xs">Memento</button>
+                            <button onclick="setTheme('matrix')" class="flex-1 py-2 rounded bg-black text-green-500 border border-green-900 hover:border-green-400 text-xs">Matrix</button>
+                            <button onclick="setTheme('pastel')" class="flex-1 py-2 rounded bg-pink-50 text-pink-500 border border-pink-200 hover:border-pink-400 text-xs">Pastel</button>
+                        </div>
+                    </div>
+
+                    <!-- Life Expectancy -->
+                    <div>
+                        <label class="block text-xs font-bold opacity-50 uppercase mb-2">Base Life Expectancy: <span id="expectancyVal">80</span> Years</label>
+                        <input type="range" id="lifeExpectancy" min="50" max="120" value="80" oninput="updateExpectancy(this.value)" class="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <!-- Comparison Mode -->
+                    <div>
+                        <label class="block text-xs font-bold opacity-50 uppercase mb-2">Compare To</label>
+                        <select id="comparisonSelect" onchange="addComparison()" class="w-full px-3 py-2 rounded-lg bg-black/20 border border-white/10">
+                            <option value="">None</option>
+                            <option value="35">Wolfgang Amadeus Mozart (35)</option>
+                            <option value="90">Winston Churchill (90)</option>
+                            <option value="56">Steve Jobs (56)</option>
+                            <option value="96">Queen Elizabeth II (96)</option>
+                            <option value="27">Kurt Cobain (27)</option>
+                        </select>
+                    </div>
+
+                     <!-- Zoom -->
+                     <div>
+                        <label class="block text-xs font-bold opacity-50 uppercase mb-2">Grid Zoom</label>
+                        <input type="range" id="zoomLevel" min="0.5" max="2" step="0.1" value="1" oninput="setZoom(this.value)" class="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- Column 2: Data Input -->
+                <div class="space-y-6">
+                    <!-- Chapters -->
+                    <div>
+                        <label class="block text-xs font-bold opacity-50 uppercase mb-2">Add Life Chapter</label>
+                        <div class="flex flex-col gap-2">
+                            <input type="text" id="chapterName" placeholder="Name (e.g. College)" class="px-3 py-2 rounded-lg w-full text-xs">
+                            <div class="flex gap-2">
+                                <input type="date" id="chapterStart" class="px-3 py-2 rounded-lg w-full text-xs">
+                                <input type="date" id="chapterEnd" class="px-3 py-2 rounded-lg w-full text-xs">
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="color" id="chapterColor" value="#3b82f6" class="h-8 w-12 rounded cursor-pointer bg-transparent p-0 border-0">
+                                <button onclick="addChapter()" class="flex-1 bg-white/10 hover:bg-white/20 rounded text-xs uppercase font-bold">Add Era</button>
+                            </div>
+                        </div>
+                        <ul id="chapterList" class="mt-2 space-y-1 max-h-24 overflow-y-auto"></ul>
+                    </div>
+
+                    <!-- Milestones -->
+                    <div>
+                        <label class="block text-xs font-bold opacity-50 uppercase mb-2">Add Milestone</label>
+                        <div class="flex gap-2 mb-2">
+                            <input type="text" id="milestoneName" placeholder="Event" class="px-3 py-2 rounded-lg flex-1 text-xs">
+                            <input type="date" id="milestoneDate" class="px-3 py-2 rounded-lg w-24 text-xs">
+                        </div>
+                        <button onclick="addMilestone()" class="w-full py-2 bg-white/10 hover:bg-white/20 rounded text-xs uppercase font-bold">Add Marker</button>
+                        <ul id="milestoneList" class="mt-2 space-y-1 max-h-24 overflow-y-auto"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NESTED DROPDOWN: PHASE 2 FEATURES -->
+            <div class="px-6 pb-2">
+                <details class="group/nested bg-black/20 border border-white/5 rounded-xl overflow-hidden mt-4">
+                    <summary class="flex justify-between items-center p-3 cursor-pointer hover:bg-white/5 font-bold uppercase tracking-wide text-xs select-none text-red-400">
+                        <span><i class="fa-solid fa-microchip mr-2"></i> Phase 2: Simulation & Reality Tools</span>
+                        <span class="transform group-open/nested:rotate-180 transition-transform"><i class="fa-solid fa-chevron-down"></i></span>
+                    </summary>
+
+                    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        <!-- Habit Simulator -->
+                        <div>
+                            <label class="block text-xs font-bold opacity-50 uppercase mb-2">Habit Impact Simulator</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center space-x-2 text-xs cursor-pointer">
+                                    <input type="checkbox" onchange="toggleHabit('smoker')" id="habitSmoker">
+                                    <span>Smoker (-10 Years)</span>
+                                </label>
+                                <label class="flex items-center space-x-2 text-xs cursor-pointer">
+                                    <input type="checkbox" onchange="toggleHabit('exercise')" id="habitExercise">
+                                    <span>Daily Exercise (+5 Years)</span>
+                                </label>
+                                <label class="flex items-center space-x-2 text-xs cursor-pointer">
+                                    <input type="checkbox" onchange="toggleHabit('stress')" id="habitStress">
+                                    <span>High Stress (-3 Years)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Visual Overlays -->
+                        <div>
+                            <label class="block text-xs font-bold opacity-50 uppercase mb-2">Reality Overlays</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center space-x-2 text-xs cursor-pointer">
+                                    <input type="checkbox" onchange="toggleOverlay('peak')" id="overlayPeak">
+                                    <span>Show Peak Performance Zones</span>
+                                </label>
+                                <label class="flex items-center space-x-2 text-xs cursor-pointer">
+                                    <input type="checkbox" onchange="toggleOverlay('audit')" id="overlayAudit">
+                                    <span>Show Time Audit (Sleep/Work)</span>
+                                </label>
+                                <label class="flex items-center space-x-2 text-xs cursor-pointer">
+                                    <input type="checkbox" onchange="toggleOverlay('quarters')" id="overlayQuarters">
+                                    <span>Show Quarterly Markers</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- The Tail End -->
+                        <div class="col-span-1 md:col-span-2 bg-white/5 p-3 rounded-lg">
+                            <label class="block text-xs font-bold opacity-50 uppercase mb-2">"The Tail End" Calculator</label>
+                            <div class="flex gap-2 items-center text-xs">
+                                <span>I see my</span>
+                                <input type="text" id="tailEndTarget" placeholder="Parents" class="w-20 px-2 py-1 rounded">
+                                <input type="number" id="tailEndFreq" placeholder="2" class="w-12 px-2 py-1 rounded">
+                                <span>times/year.</span>
+                                <button onclick="calcTailEnd()" class="bg-red-500 text-white px-2 py-1 rounded font-bold ml-auto">Calc</button>
+                            </div>
+                            <div id="tailEndResult" class="mt-2 text-xs font-bold text-red-300 hidden"></div>
+                        </div>
+
+                        <!-- Tools Row -->
+                        <div class="col-span-1 md:col-span-2 flex flex-wrap gap-2">
+                            <button onclick="playTimeLapse()" class="bg-white/10 hover:bg-white/20 px-3 py-2 rounded text-xs flex-1"><i class="fa-solid fa-play mr-1"></i> Time-Lapse</button>
+                            <button onclick="toggleZenMode()" class="bg-white/10 hover:bg-white/20 px-3 py-2 rounded text-xs flex-1"><i class="fa-solid fa-infinity mr-1"></i> Zen Mode</button>
+                            <button onclick="exportData()" class="bg-white/10 hover:bg-white/20 px-3 py-2 rounded text-xs flex-1"><i class="fa-solid fa-file-export mr-1"></i> Backup</button>
+                            <label class="bg-white/10 hover:bg-white/20 px-3 py-2 rounded text-xs flex-1 cursor-pointer text-center">
+                                <i class="fa-solid fa-file-import mr-1"></i> Restore
+                                <input type="file" onchange="importData(this)" class="hidden" accept=".json">
+                            </label>
+                            <button onclick="printPoster()" class="bg-white/10 hover:bg-white/20 px-3 py-2 rounded text-xs flex-1"><i class="fa-solid fa-print mr-1"></i> Print</button>
+                        </div>
+                    </div>
+                </details>
+            </div>
+            
+            <div class="p-4 bg-black/10 text-center border-t border-white/5">
+                <button onclick="resetData()" class="text-xs text-red-400 hover:text-red-300 underline">Reset All Data</button>
+            </div>
+        </details>
+    </div>
+
+    <!-- Stats Section -->
+    <div id="statsContainer" class="w-full max-w-2xl text-center mb-6 space-y-6 animate-fade-in hidden">
+        <div class="bg-red-500/10 border border-red-500/20 p-6 rounded-xl relative overflow-hidden">
+            <p class="text-lg md:text-xl font-medium leading-relaxed" style="color: var(--text-color)">
+                "You have roughly <span id="weekendsLeft" class="font-bold underline decoration-red-500 underline-offset-4">0</span> weekends left."
+            </p>
+            <div id="carpeDiemBox" class="hidden mt-4 pt-4 border-t border-white/10 text-sm italic opacity-80 flex flex-col md:flex-row justify-between items-center gap-2">
+                <span><i class="fa-solid fa-bullseye mr-2 text-red-500"></i>Current Focus: <span id="currentGoalDisplay"></span></span>
+                <button onclick="downloadICS()" class="text-xs bg-white/10 px-2 py-1 rounded hover:bg-white/20"><i class="fa-regular fa-calendar-plus mr-1"></i> Add to Cal</button>
+            </div>
+        </div>
+        
+        <div class="flex justify-center gap-4">
+             <button onclick="downloadGrid()" class="flex items-center gap-2 text-sm opacity-60 hover:opacity-100 transition-opacity">
+                <i class="fa-solid fa-download"></i> Download Wallpaper
+            </button>
+            <button onclick="generateSocialCard()" class="flex items-center gap-2 text-sm opacity-60 hover:opacity-100 transition-opacity">
+                <i class="fa-brands fa-instagram"></i> Share Card
+            </button>
+        </div>
+    </div>
+
+    <!-- The Grid Container (Zen target) -->
+    <div class="zen-container relative w-full max-w-[900px] flex justify-center mb-12 overflow-hidden">
+        <div id="canvasWrapper" style="transform: scale(1); transition: transform 0.2s;">
+            <canvas id="lifeGrid" class="rounded-lg shadow-2xl"></canvas>
+        </div>
+        
+        <!-- Hover Tooltip -->
+        <div id="gridTooltip" class="fixed hidden bg-zinc-900 text-white text-xs p-3 rounded-lg border border-zinc-700 shadow-2xl z-50 mono pointer-events-none transform -translate-y-full -translate-x-1/2 mt-[-10px]">
+            <span id="tooltipAge" class="font-bold text-red-400 block text-sm mb-1"></span>
+            <span id="tooltipDate" class="text-zinc-400 block mb-1"></span>
+            <span id="tooltipExtra" class="text-white italic"></span>
+        </div>
+
+        <!-- Placeholder -->
+        <div id="gridPlaceholder" class="absolute inset-0 w-full h-[600px] border-2 border-dashed border-white/20 rounded-lg flex items-center justify-center text-opacity-50 font-mono text-sm" style="color: var(--text-color)">
+            [ ENTER BIRTHDAY TO INITIALIZE ]
+        </div>
+    </div>
+    
+    <div class="zen-exit text-white bg-black/50 px-4 py-2 rounded-full backdrop-blur-md" onclick="toggleZenMode()">Exit Zen Mode</div>
+
+    <!-- Stoic Footer -->
+    <footer class="text-center pb-8 max-w-xl px-4">
+        <p id="stoicQuote" class="text-sm italic opacity-60 font-serif mb-2">"It is not that we have a short time to live, but that we waste a lot of it."</p>
+        <p class="text-xs opacity-40 uppercase tracking-widest mono">— Seneca</p>
+    </footer>
+
+    <!-- Carpe Diem Modal -->
+    <div id="goalModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 backdrop-blur-sm">
+        <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-xl max-w-sm w-full mx-4 shadow-2xl transform scale-100">
+            <h3 class="text-xl font-bold text-white mb-2 uppercase">Carpe Diem</h3>
+            <p class="text-zinc-400 text-sm mb-4">You are in this week right now. What is your ONE big goal for these 7 days?</p>
+            <input type="text" id="goalInput" class="w-full bg-black/50 border border-zinc-700 text-white px-4 py-3 rounded-lg mb-4 focus:ring-2 focus:ring-red-500 outline-none" placeholder="e.g. Finish the project...">
+            <div class="flex justify-end gap-3">
+                <button onclick="document.getElementById('goalModal').classList.add('hidden')" class="px-4 py-2 text-zinc-500 hover:text-white text-sm">Cancel</button>
+                <button onclick="saveGoal()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm">Commit</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- STATE MANAGEMENT ---
+        const DEFAULT_STATE = {
+            birthDate: '',
+            baseLifeExpectancy: 80,
+            theme: 'memento',
+            chapters: [], 
+            milestones: [], 
+            comparisonAge: null,
+            currentGoal: '',
+            // Phase 2 State
+            habits: { smoker: false, exercise: false, stress: false },
+            overlays: { peak: false, audit: false, quarters: false }
+        };
+
+        let appState = JSON.parse(localStorage.getItem('lifeInWeeksState')) || DEFAULT_STATE;
+        
+        // Migration fix for old state
+        if(!appState.habits) appState.habits = { smoker: false, exercise: false, stress: false };
+        if(!appState.overlays) appState.overlays = { peak: false, audit: false, quarters: false };
+        if(!appState.baseLifeExpectancy) appState.baseLifeExpectancy = appState.lifeExpectancy || 80;
+
+        // --- CONSTANTS ---
+        const WEEKS_PER_YEAR = 52;
+        const SQUARE_SIZE = 14; 
+        const GAP = 3;
+        const PADDING_TOP = 40;
+        const PADDING_LEFT = 60;
+        const PADDING_RIGHT = 20;
+        const PADDING_BOTTOM = 40;
+
+        const STOIC_QUOTES = [
+            { t: "It is not that we have a short time to live, but that we waste a lot of it.", a: "Seneca" },
+            { t: "You could leave life right now. Let that determine what you do and say and think.", a: "Marcus Aurelius" },
+            { t: "We suffer more often in imagination than in reality.", a: "Seneca" },
+            { t: "Don't explain your philosophy. Embody it.", a: "Epictetus" },
+            { t: "Waste no more time arguing about what a good man should be. Be one.", a: "Marcus Aurelius" }
+        ];
+
+        // --- DOM ELEMENTS ---
+        const canvas = document.getElementById('lifeGrid');
+        const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('gridTooltip');
+        
+        // --- INITIALIZATION ---
+        function init() {
+            // Load state to UI
+            if (appState.birthDate) {
+                document.getElementById('birthDate').value = appState.birthDate;
+                document.getElementById('gridPlaceholder').classList.add('hidden');
+                document.getElementById('statsContainer').classList.remove('hidden');
+            }
+            document.getElementById('lifeExpectancy').value = appState.baseLifeExpectancy;
+            document.getElementById('expectancyVal').innerText = appState.baseLifeExpectancy;
+            setTheme(appState.theme, false); 
+            updateChaptersList();
+            updateMilestonesList();
+            
+            // Checkboxes
+            document.getElementById('habitSmoker').checked = appState.habits.smoker;
+            document.getElementById('habitExercise').checked = appState.habits.exercise;
+            document.getElementById('habitStress').checked = appState.habits.stress;
+            document.getElementById('overlayPeak').checked = appState.overlays.peak;
+            document.getElementById('overlayAudit').checked = appState.overlays.audit;
+            document.getElementById('overlayQuarters').checked = appState.overlays.quarters;
+
+            if (appState.currentGoal) {
+                document.getElementById('currentGoalDisplay').innerText = appState.currentGoal;
+                document.getElementById('carpeDiemBox').classList.remove('hidden');
+            }
+
+            const q = STOIC_QUOTES[Math.floor(Math.random() * STOIC_QUOTES.length)];
+            document.getElementById('stoicQuote').innerText = `"${q.t}"`;
+            document.querySelector('footer p:last-child').innerText = `— ${q.a}`;
+
+            if(appState.birthDate) renderGrid();
+        }
+
+        function saveState() {
+            localStorage.setItem('lifeInWeeksState', JSON.stringify(appState));
+        }
+
+        function resetData() {
+            if(confirm("Are you sure? This will wipe all your custom data.")) {
+                localStorage.removeItem('lifeInWeeksState');
+                location.reload();
+            }
+        }
+
+        // --- CORE LOGIC ---
+        function updateApp() {
+            appState.birthDate = document.getElementById('birthDate').value;
+            if(!appState.birthDate) return;
+            document.getElementById('gridPlaceholder').classList.add('hidden');
+            document.getElementById('statsContainer').classList.remove('hidden');
+            document.getElementById('statsContainer').classList.add('flex', 'flex-col');
+            saveState();
+            renderGrid();
+        }
+
+        function updateExpectancy(val) {
+            appState.baseLifeExpectancy = parseInt(val);
+            document.getElementById('expectancyVal').innerText = val;
+            saveState();
+            renderGrid();
+        }
+
+        function getCalculatedExpectancy() {
+            let total = appState.baseLifeExpectancy;
+            if (appState.habits.smoker) total -= 10;
+            if (appState.habits.exercise) total += 5;
+            if (appState.habits.stress) total -= 3;
+            // Clamp reasonable min/max
+            if (total < 20) total = 20;
+            if (total > 150) total = 150;
+            return total;
+        }
+
+        function setZoom(val) {
+            document.getElementById('canvasWrapper').style.transform = `scale(${val})`;
+        }
+
+        function setTheme(themeName, save = true) {
+            document.body.className = `theme-${themeName} min-h-screen flex flex-col items-center py-10 px-4`;
+            appState.theme = themeName;
+            if(save) {
+                saveState();
+                renderGrid();
+            }
+        }
+
+        // --- PHASE 2 LOGIC ---
+        function toggleHabit(habit) {
+            appState.habits[habit] = document.getElementById('habit' + habit.charAt(0).toUpperCase() + habit.slice(1)).checked;
+            saveState();
+            renderGrid();
+        }
+
+        function toggleOverlay(overlay) {
+            appState.overlays[overlay] = document.getElementById('overlay' + overlay.charAt(0).toUpperCase() + overlay.slice(1)).checked;
+            saveState();
+            renderGrid();
+        }
+
+        function calcTailEnd() {
+            const target = document.getElementById('tailEndTarget').value || "event";
+            const freq = parseInt(document.getElementById('tailEndFreq').value) || 0;
+            const lived = getLivedWeeks();
+            const total = getCalculatedExpectancy() * 52;
+            const remainingYears = (total - lived) / 52;
+            const remainingEvents = Math.floor(remainingYears * freq);
+            
+            const resDiv = document.getElementById('tailEndResult');
+            resDiv.innerText = `You have approx ${remainingEvents} times left with ${target}.`;
+            resDiv.classList.remove('hidden');
+        }
+
+        let animationFrame;
+        function playTimeLapse() {
+            if (!appState.birthDate) return;
+            const realLived = getLivedWeeks();
+            let currentDraw = 0;
+            
+            function animate() {
+                renderGrid(currentDraw); // Draw up to this point
+                currentDraw += 10; // Speed
+                if (currentDraw < realLived) {
+                    animationFrame = requestAnimationFrame(animate);
+                } else {
+                    renderGrid(); // Final state
+                }
+            }
+            cancelAnimationFrame(animationFrame);
+            animate();
+        }
+
+        function toggleZenMode() {
+            document.body.classList.toggle('zen-mode');
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "life_data.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function importData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const loaded = JSON.parse(e.target.result);
+                    appState = loaded;
+                    saveState();
+                    location.reload();
+                } catch(err) {
+                    alert("Invalid JSON file");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function downloadICS() {
+            if (!appState.currentGoal) {
+                alert("Set a goal first!");
+                return;
+            }
+            const now = new Date();
+            const end = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+            const formatDate = (date) => date.toISOString().replace(/-|:|\.\d\d\d/g, "").slice(0, 15) + "Z";
+            
+            const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:${formatDate(now)}
+DTEND:${formatDate(end)}
+SUMMARY:Life in Weeks Goal: ${appState.currentGoal}
+DESCRIPTION:Memento Mori. Focus on this goal for this week.
+END:VEVENT
+END:VCALENDAR`;
+
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.setAttribute('download', 'goal.ics');
+            document.body.appendChild(link);
+            link.click();
+        }
+
+        function printPoster() {
+            // Very basic print logic - typically needs CSS media print
+            // We'll just open the image in new tab for them to print
+            const url = canvas.toDataURL('image/png');
+            const win = window.open('');
+            win.document.write(`<img src="${url}" style="width:100%">`);
+            win.document.write('<script>window.print();<\/script>');
+        }
+
+        // --- CHAPTERS & MILESTONES (Legacy) ---
+        function addChapter() {
+            const name = document.getElementById('chapterName').value;
+            const start = document.getElementById('chapterStart').value;
+            const end = document.getElementById('chapterEnd').value;
+            const color = document.getElementById('chapterColor').value;
+            if (name && start && end) {
+                appState.chapters.push({ name, start, end, color });
+                saveState(); updateChaptersList(); renderGrid();
+                document.getElementById('chapterName').value = '';
+            }
+        }
+        function updateChaptersList() {
+            const list = document.getElementById('chapterList');
+            list.innerHTML = '';
+            appState.chapters.forEach((chap, idx) => {
+                const li = document.createElement('li');
+                li.className = "flex justify-between items-center bg-white/5 px-2 py-1 rounded text-xs";
+                li.innerHTML = `<span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full" style="background:${chap.color}"></span>${chap.name}</span> <button onclick="deleteChapter(${idx})" class="text-red-500 hover:text-red-400">×</button>`;
+                list.appendChild(li);
+            });
+        }
+        function deleteChapter(idx) { appState.chapters.splice(idx, 1); saveState(); updateChaptersList(); renderGrid(); }
+        function addMilestone() {
+            const name = document.getElementById('milestoneName').value;
+            const date = document.getElementById('milestoneDate').value;
+            if (name && date) {
+                appState.milestones.push({ name, date });
+                saveState(); updateMilestonesList(); renderGrid();
+                document.getElementById('milestoneName').value = '';
+            }
+        }
+        function updateMilestonesList() {
+            const list = document.getElementById('milestoneList');
+            list.innerHTML = '';
+            appState.milestones.forEach((m, idx) => {
+                const li = document.createElement('li');
+                li.className = "flex justify-between items-center bg-white/5 px-2 py-1 rounded text-xs";
+                li.innerHTML = `<span><i class="fa-solid fa-star text-yellow-500 mr-2"></i>${m.name}</span> <button onclick="deleteMilestone(${idx})" class="text-red-500">×</button>`;
+                list.appendChild(li);
+            });
+        }
+        function deleteMilestone(idx) { appState.milestones.splice(idx, 1); saveState(); updateMilestonesList(); renderGrid(); }
+        function addComparison() {
+            const val = document.getElementById('comparisonSelect').value;
+            appState.comparisonAge = val ? parseInt(val) : null;
+            saveState(); renderGrid();
+        }
+
+        // --- CARPE DIEM ---
+        function openGoalModal() {
+            document.getElementById('goalModal').classList.remove('hidden');
+            document.getElementById('goalModal').classList.add('flex');
+            document.getElementById('goalInput').value = appState.currentGoal;
+            document.getElementById('goalInput').focus();
+        }
+        function saveGoal() {
+            const g = document.getElementById('goalInput').value;
+            appState.currentGoal = g;
+            saveState();
+            document.getElementById('currentGoalDisplay').innerText = g;
+            document.getElementById('carpeDiemBox').classList.remove('hidden');
+            document.getElementById('goalModal').classList.add('hidden');
+            document.getElementById('goalModal').classList.remove('flex');
+        }
+
+        // --- RENDER ENGINE ---
+        function calculateWeeksBetween(d1, d2) {
+            return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24 * 7));
+        }
+
+        function getLivedWeeks() {
+            if (!appState.birthDate) return 0;
+            return calculateWeeksBetween(new Date(appState.birthDate), new Date());
+        }
+
+        function renderGrid(overrideLived = null) {
+            if (!appState.birthDate) return;
+
+            const birth = new Date(appState.birthDate);
+            const now = new Date();
+            const calculatedExp = getCalculatedExpectancy();
+            const totalWeeks = calculatedExp * WEEKS_PER_YEAR;
+            const livedWeeks = overrideLived !== null ? overrideLived : getLivedWeeks();
+            const remainingWeeks = totalWeeks - livedWeeks;
+
+            if (overrideLived === null) {
+                document.getElementById('weekendsLeft').innerText = remainingWeeks.toLocaleString();
+            }
+
+            const COLS = 52;
+            const ROWS = calculatedExp;
+            
+            // Set Canvas Size
+            const width = (COLS * SQUARE_SIZE) + ((COLS - 1) * GAP) + PADDING_LEFT + PADDING_RIGHT;
+            const height = (ROWS * SQUARE_SIZE) + ((ROWS - 1) * GAP) + PADDING_TOP + PADDING_BOTTOM;
+            canvas.width = width;
+            canvas.height = height;
+
+            const style = getComputedStyle(document.body);
+            const bg = style.getPropertyValue('--bg-color');
+            const cLived = style.getPropertyValue('--grid-lived');
+            const cFuture = style.getPropertyValue('--grid-future');
+            const cCurrent = style.getPropertyValue('--grid-current');
+            const cText = style.getPropertyValue('--text-color');
+
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, width, height);
+
+            // Labels
+            ctx.fillStyle = cText;
+            ctx.globalAlpha = 0.5;
+            ctx.font = 'bold 10px JetBrains Mono';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+
+            for (let y = 0; y <= ROWS; y += 5) {
+                const yPos = PADDING_TOP + (y * (SQUARE_SIZE + GAP)) + (SQUARE_SIZE/2);
+                ctx.fillText(y, PADDING_LEFT - 10, yPos);
+            }
+            ctx.globalAlpha = 1;
+
+            // Draw Squares
+            for (let i = 0; i < totalWeeks; i++) {
+                const col = i % COLS;
+                const row = Math.floor(i / COLS);
+                const x = PADDING_LEFT + (col * (SQUARE_SIZE + GAP));
+                const y = PADDING_TOP + (row * (SQUARE_SIZE + GAP));
+                
+                const weekDate = new Date(birth.getTime() + (i * 7 * 24 * 60 * 60 * 1000));
+                
+                let fill = cFuture; 
+
+                // 1. Basic Life
+                if (i < livedWeeks) fill = cLived;
+
+                // 2. Audit Overlay (If active & lived)
+                if (appState.overlays.audit && i < livedWeeks) {
+                    // Approx stats: 1/3 sleep, 1/3 work/school for adult life, rest leisure
+                    // This is rough visualization logic
+                    const age = Math.floor(i/52);
+                    if (i % 3 === 0) fill = '#52525b'; // Sleep (Grey)
+                    else if (age > 18 && age < 65 && i % 3 === 1) fill = '#3b82f6'; // Work (Blue)
+                }
+
+                // 3. Chapters
+                appState.chapters.forEach(chap => {
+                    const startW = calculateWeeksBetween(birth, new Date(chap.start));
+                    const endW = calculateWeeksBetween(birth, new Date(chap.end));
+                    if (i >= startW && i <= endW) fill = chap.color;
+                });
+
+                // 4. Current
+                if (i === livedWeeks && overrideLived === null) fill = cCurrent;
+
+                // Draw Rect
+                ctx.beginPath();
+                ctx.fillStyle = fill;
+                
+                // Peak Zones (Overlay transparency)
+                if (appState.overlays.peak) {
+                    const age = Math.floor(i/52);
+                    // Physical 20-30
+                    if (age >= 20 && age <= 30) ctx.globalAlpha = 0.8;
+                    // Creative 35-45 (Changes hue slightly?)
+                    else if (age >= 35 && age <= 45) ctx.globalAlpha = 0.8;
+                    else ctx.globalAlpha = 0.3; // Dim others to highlight peaks
+                }
+
+                ctx.roundRect(x, y, SQUARE_SIZE, SQUARE_SIZE, 2);
+                ctx.fill();
+                ctx.globalAlpha = 1; // Reset
+
+                // 5. Quarterly Markers
+                if (appState.overlays.quarters && (i+1) % 13 === 0) {
+                     ctx.strokeStyle = cText;
+                     ctx.globalAlpha = 0.3;
+                     ctx.lineWidth = 1;
+                     ctx.strokeRect(x, y, SQUARE_SIZE, SQUARE_SIZE);
+                     ctx.globalAlpha = 1;
+                }
+
+                // 6. Milestones
+                appState.milestones.forEach(m => {
+                    const mW = calculateWeeksBetween(birth, new Date(m.date));
+                    if (i === mW) {
+                        ctx.fillStyle = '#FFD700'; 
+                        ctx.beginPath();
+                        ctx.arc(x + SQUARE_SIZE/2, y + SQUARE_SIZE/2, SQUARE_SIZE/3, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                });
+
+                // 7. Comparison
+                if (appState.comparisonAge && row === appState.comparisonAge && col === 0) {
+                     ctx.strokeStyle = cText;
+                     ctx.lineWidth = 1;
+                     ctx.beginPath();
+                     ctx.moveTo(PADDING_LEFT - 5, y);
+                     ctx.lineTo(width - PADDING_RIGHT, y);
+                     ctx.stroke();
+                }
+            }
+        }
+
+        // --- INTERACTION ---
+        canvas.addEventListener('click', (e) => {
+            if (!appState.birthDate) return;
+            const { index } = getIndexFromEvent(e);
+            if (index === -1) return;
+            const livedWeeks = getLivedWeeks();
+            if (index === livedWeeks) openGoalModal();
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+             if (!appState.birthDate) return;
+             const { index } = getIndexFromEvent(e);
+             if (index === -1 || index >= getCalculatedExpectancy() * 52) {
+                 tooltip.classList.add('hidden');
+                 return;
+             }
+             const birth = new Date(appState.birthDate);
+             const weekDate = new Date(birth.getTime() + (index * 7 * 24 * 60 * 60 * 1000));
+             const age = Math.floor(index / 52);
+
+             tooltip.style.left = e.clientX + 'px';
+             tooltip.style.top = e.clientY + 'px';
+             document.getElementById('tooltipAge').innerText = `Age: ${age}`;
+             document.getElementById('tooltipDate').innerText = weekDate.toLocaleDateString();
+             
+             let extra = '';
+             appState.chapters.forEach(c => {
+                 const s = calculateWeeksBetween(birth, new Date(c.start));
+                 const e = calculateWeeksBetween(birth, new Date(c.end));
+                 if(index >= s && index <= e) extra = `Chapter: ${c.name}`;
+             });
+             appState.milestones.forEach(m => {
+                 const mW = calculateWeeksBetween(birth, new Date(m.date));
+                 if(index === mW) extra = `Event: ${m.name} ★`;
+             });
+             document.getElementById('tooltipExtra').innerText = extra;
+             tooltip.classList.remove('hidden');
+        });
+
+        canvas.addEventListener('mouseleave', () => { tooltip.classList.add('hidden'); });
+
+        function getIndexFromEvent(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            if (x < PADDING_LEFT || x > canvas.width - PADDING_RIGHT || y < PADDING_TOP || y > canvas.height - PADDING_BOTTOM) {
+                return { index: -1, x, y };
+            }
+            const col = Math.floor((x - PADDING_LEFT) / (SQUARE_SIZE + GAP));
+            const row = Math.floor((y - PADDING_TOP) / (SQUARE_SIZE + GAP));
+            const index = (row * 52) + col;
+            return { index, x, y };
+        }
+
+        function downloadGrid() {
+            const link = document.createElement('a');
+            link.download = 'my-life-in-weeks.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        function generateSocialCard() {
+            const tCanvas = document.createElement('canvas');
+            const size = 1080;
+            tCanvas.width = size;
+            tCanvas.height = size;
+            const tCtx = tCanvas.getContext('2d');
+            
+            const style = getComputedStyle(document.body);
+            tCtx.fillStyle = style.getPropertyValue('--bg-color');
+            tCtx.fillRect(0,0,size,size);
+            
+            const miniSize = 10;
+            const cols = 52;
+            const rows = 60; 
+            const startX = (size - (cols * miniSize))/2;
+            const startY = 100;
+            
+            const lived = getLivedWeeks();
+            for(let i=0; i<cols*rows; i++) {
+                const c = i % cols;
+                const r = Math.floor(i/cols);
+                tCtx.fillStyle = (i < lived) ? style.getPropertyValue('--grid-lived') : style.getPropertyValue('--grid-future');
+                tCtx.fillRect(startX + (c*miniSize), startY + (r*miniSize), miniSize-1, miniSize-1);
+            }
+            
+            tCtx.fillStyle = style.getPropertyValue('--text-color');
+            tCtx.font = 'bold 60px Inter';
+            tCtx.textAlign = 'center';
+            tCtx.fillText("LIFE IN WEEKS", size/2, size - 200);
+            
+            const weeksLeft = (getCalculatedExpectancy() * 52) - lived;
+            tCtx.fillStyle = style.getPropertyValue('--accent-color');
+            tCtx.font = '40px JetBrains Mono';
+            tCtx.fillText(`${weeksLeft.toLocaleString()} WEEKENDS LEFT`, size/2, size - 120);
+
+            const link = document.createElement('a');
+            link.download = 'life-stats-share.png';
+            link.href = tCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
